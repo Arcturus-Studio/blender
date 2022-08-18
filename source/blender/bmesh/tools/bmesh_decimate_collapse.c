@@ -146,6 +146,11 @@ static void bm_decim_calc_target_co_db(
         BMEdge *e, double optimize_co[3],
         const Quadric *vquadrics)
 {
+	optimize_co[0] = (double)e->v1->co[0];
+	optimize_co[1] = (double)e->v1->co[1];
+	optimize_co[2] = (double)e->v1->co[2];
+	return;
+
 	/* compute an edge contraction target for edge 'e'
 	 * this is computed by summing it's vertices quadrics and
 	 * optimizing the result. */
@@ -280,7 +285,7 @@ static void bm_decim_build_edge_cost_single(
 		else {
 			/* only collapse tri's */
 			goto clear;
-		}
+	    }
 	}
 	else {
 		goto clear;
@@ -337,8 +342,12 @@ static void bm_decim_build_edge_cost_single(
 		}
 	}
 
-	BLI_heap_insert_or_update(eheap, &eheap_table[BM_elem_index_get(e)], cost, e);
-	return;
+    // Arbitrary error bounding.
+    if (cost >= 0.0f && cost <= 0.0005f)
+    {
+        BLI_heap_insert_or_update(eheap, &eheap_table[BM_elem_index_get(e)], cost, e);
+        return;
+    }
 
 clear:
 	if (eheap_table[BM_elem_index_get(e)]) {
@@ -968,12 +977,14 @@ static bool bm_edge_collapse(
 #endif
         )
 {
+
 	BMVert *v_other;
 
 	v_other = BM_edge_other_vert(e_clear, v_clear);
 	BLI_assert(v_other != NULL);
 
 	if (BM_edge_is_manifold(e_clear)) {
+
 		BMLoop *l_a, *l_b;
 		BMEdge *e_a_other[2], *e_b_other[2];
 		bool ok;
@@ -1300,6 +1311,30 @@ void BM_mesh_decimate_collapse(
 	Quadric *vquadrics;      /* vert index aligned quadrics */
 	int tot_edge_orig;
 	int face_tot_target;
+
+    /* FOR DEBUGGING PURPOSES:
+    FILE* weightFile;
+    weightFile = fopen("vertexweights.txt", "r");
+    if (weightFile != NULL)
+    {
+        int vinput_len;
+        BMVert **vinput_arr = BM_iter_as_arrayN(bm, BM_VERTS_OF_MESH, NULL, &vinput_len, NULL, 0);
+
+        printf("Vertex weight file found.\n");
+
+        vweights = malloc(sizeof(float) * vinput_len);
+        for (int i = 0; i < vinput_len; ++i)
+        {
+            vweights[i] = 1.0f;
+        }
+
+        int i = 0;
+        while (!feof(weightFile))
+        {
+            fscanf(weightFile, "%d", &i);
+            vweights[i] = 0.0f;
+        }
+    }*/
 
 	CD_UseFlag customdata_flag = 0;
 
